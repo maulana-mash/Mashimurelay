@@ -1,0 +1,20 @@
+{
+  "name": "mashimurelay-web",
+  "version": "1.0.0",
+  "description": "Mashimurelay - Electromechanical Relay CAD Simulator Web & Mobile PWA",
+  "private": true,
+  "scripts": {
+    "start": "python serve.py --no-browser",
+    "serve": "python serve.py",
+    "build": "node scripts/build-secure.js"
+  },
+  "devDependencies": {
+    "terser": "^5.51.2"
+  },
+  "dependencies": {
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
+    "qrcode": "^1.5.4",
+    "qrcode-generator": "^2.0.4"
+  }
+}
