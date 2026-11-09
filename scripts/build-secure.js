@@ -25,6 +25,7 @@ const { minify: terserMinify } = require('terser');
 const ROOT_DIR = path.resolve(__dirname, '..');
 const SRC_DEV_DIR = path.join(ROOT_DIR, 'src_dev');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
+const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
 const WIN_DIST_DIR = path.resolve(ROOT_DIR, '..', 'simurelay-windows', 'dist');
 
 const RESERVED_GLOBALS = [
@@ -139,6 +140,7 @@ function writeToTargets(relPath, content) {
   const targets = [
     path.join(ROOT_DIR, relPath),
     path.join(DIST_DIR, relPath),
+    path.join(PUBLIC_DIR, relPath),
     path.join(WIN_DIST_DIR, relPath)
   ];
   targets.forEach(tgt => {
@@ -153,6 +155,7 @@ function copyToTargets(relPath) {
   const targets = [
     path.join(ROOT_DIR, relPath),
     path.join(DIST_DIR, relPath),
+    path.join(PUBLIC_DIR, relPath),
     path.join(WIN_DIST_DIR, relPath)
   ];
   targets.forEach(tgt => {
@@ -168,8 +171,13 @@ async function runBuild() {
   // HTML (Web & PWA)
   const rawHtml = fs.readFileSync(path.join(SRC_DEV_DIR, 'index.html'), 'utf8');
   const minifiedHtml = await minifyHtml(rawHtml);
+  [DIST_DIR, PUBLIC_DIR].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  });
+
   fs.writeFileSync(path.join(ROOT_DIR, 'index.html'), minifiedHtml, 'utf8');
   fs.writeFileSync(path.join(DIST_DIR, 'index.html'), minifiedHtml, 'utf8');
+  fs.writeFileSync(path.join(PUBLIC_DIR, 'index.html'), minifiedHtml, 'utf8');
 
   // HTML for Windows Native Desktop (Strip 'Di HP', mobile orientation button, and Android QR modal)
   const winRawHtml = rawHtml
@@ -263,8 +271,9 @@ async function runBuild() {
   if (fs.existsSync(assetsSrc)) {
     copyDir(assetsSrc, path.join(ROOT_DIR, 'assets'));
     copyDir(assetsSrc, path.join(DIST_DIR, 'assets'));
+    copyDir(assetsSrc, path.join(PUBLIC_DIR, 'assets'));
     copyDir(assetsSrc, path.join(WIN_DIST_DIR, 'assets'));
-    console.log('  ✓ Assets synced to root, dist, and windows/dist');
+    console.log('  ✓ Assets synced to root, dist, public, and windows/dist');
   }
 
   // Netlify configuration
@@ -281,12 +290,14 @@ async function runBuild() {
 `;
   fs.writeFileSync(path.join(ROOT_DIR, 'netlify.toml'), netlifyToml, 'utf8');
   fs.writeFileSync(path.join(DIST_DIR, 'netlify.toml'), netlifyToml, 'utf8');
+  fs.writeFileSync(path.join(PUBLIC_DIR, 'netlify.toml'), netlifyToml, 'utf8');
   console.log('  ✓ netlify.toml written');
 
   console.log('\n=================================================================');
   console.log('✓ SUCCESS: All production files are now minified & obfuscated!');
   console.log('  - Root simurelay-web (for Netlify/GitHub): 100% Minified & Obfuscated');
   console.log('  - simurelay-web/dist: 100% Minified & Obfuscated');
+  console.log('  - simurelay-web/public: 100% Minified & Obfuscated');
   console.log('  - simurelay-windows/dist: 100% Minified & Obfuscated');
   console.log('  - Clean original source preserved in: simurelay-web/src_dev/');
   console.log('=================================================================\n');
