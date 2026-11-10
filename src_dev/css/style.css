@@ -603,6 +603,7 @@ body,
 .drawer-body,
 .modal-instructions-body,
 .project-grid {
+  overflow-x: hidden !important;
   scrollbar-width: thin !important;
   scrollbar-color: #3b82f6 rgba(15, 23, 42, 0.6) !important;
   overscroll-behavior: contain;
@@ -618,7 +619,20 @@ body,
 .modal-instructions-body::-webkit-scrollbar,
 .project-grid::-webkit-scrollbar {
   width: 6px !important;
-  height: 6px !important;
+  height: 0 !important;
+}
+
+.palette-scroll::-webkit-scrollbar:horizontal,
+#paletteContainer::-webkit-scrollbar:horizontal,
+.sidebar::-webkit-scrollbar:horizontal,
+.inspector-body::-webkit-scrollbar:horizontal,
+.modal-dashboard-body::-webkit-scrollbar:horizontal,
+.modal-body::-webkit-scrollbar:horizontal,
+.drawer-body::-webkit-scrollbar:horizontal,
+.modal-instructions-body::-webkit-scrollbar:horizontal,
+.project-grid::-webkit-scrollbar:horizontal {
+  display: none !important;
+  height: 0 !important;
 }
 
 .palette-scroll::-webkit-scrollbar-button,
@@ -1652,6 +1666,17 @@ body,
   border-radius: 6px;
 }
 
+.btn-dash-secondary-blue {
+  background: rgba(37, 99, 235, 0.16);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+.btn-dash-secondary-blue:hover {
+  background: #2563eb;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
 .template-card {
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
@@ -1738,8 +1763,9 @@ body,
 }
 
 .project-card.project-card-active {
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.04);
+  border-color: #3b82f6;
+  background: linear-gradient(180deg, rgba(23, 37, 84, 0.52) 0%, rgba(30, 58, 138, 0.22) 100%);
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.16);
 }
 
 .project-card-header {
@@ -1762,8 +1788,9 @@ body,
 }
 
 .project-badge-active {
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
+  background: rgba(37, 99, 235, 0.28);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.5);
   font-size: 10px;
   font-weight: 700;
   padding: 2px 6px;
@@ -1811,43 +1838,37 @@ body,
 }
 
 .btn-open-project {
-  background: rgba(59, 130, 246, 0.15) !important;
-  border-color: rgba(59, 130, 246, 0.4) !important;
+  background: rgba(37, 99, 235, 0.18) !important;
+  border-color: rgba(59, 130, 246, 0.42) !important;
   color: #60a5fa !important;
 }
+.project-card.project-card-active .btn-open-project,
 .btn-open-project:hover {
   background: #2563eb !important;
+  border-color: #3b82f6 !important;
   color: #ffffff !important;
 }
-
-.btn-save-project {
-  background: rgba(16, 185, 129, 0.15) !important;
-  border-color: rgba(16, 185, 129, 0.4) !important;
-  color: #34d399 !important;
-}
-.btn-save-project:hover {
-  background: #059669 !important;
-  color: #ffffff !important;
+.project-card.project-card-active .btn-open-project:hover {
+  background: #1d4ed8 !important;
 }
 
-.btn-export-project {
-  background: rgba(139, 92, 246, 0.15) !important;
-  border-color: rgba(139, 92, 246, 0.4) !important;
-  color: #c084fc !important;
-}
-.btn-export-project:hover {
-  background: #7c3aed !important;
-  color: #ffffff !important;
-}
-
+.btn-save-project,
+.btn-export-project,
 .btn-del-project {
-  background: rgba(239, 68, 68, 0.15) !important;
-  border-color: rgba(239, 68, 68, 0.4) !important;
-  color: #f87171 !important;
+  background: #1e2638 !important;
+  border-color: #2d3850 !important;
+  color: #94a3b8 !important;
+}
+.btn-save-project:hover,
+.btn-export-project:hover {
+  background: rgba(37, 99, 235, 0.22) !important;
+  border-color: #3b82f6 !important;
+  color: #ffffff !important;
 }
 .btn-del-project:hover {
-  background: #dc2626 !important;
-  color: #ffffff !important;
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: rgba(239, 68, 68, 0.55) !important;
+  color: #f87171 !important;
 }
 
 /* ==========================================================================
@@ -2146,10 +2167,10 @@ body,
   transition: all 0.2s ease;
 }
 .btn-autosave.is-active {
-  background: rgba(16, 185, 129, 0.18);
-  border-color: #10b981;
-  color: #34d399;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #3b82f6;
+  color: #93c5fd;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.25);
 }
 .btn-autosave.is-inactive {
   background: rgba(255, 255, 255, 0.04);
@@ -2157,18 +2178,29 @@ body,
   color: var(--text-muted);
 }
 
-/* Fullscreen Mode */
+/* Quick Save & Fullscreen Mode (Unified Blue Accent) */
+.btn-save-quick {
+  background: rgba(37, 99, 235, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
+}
+.btn-save-quick:hover {
+  background: rgba(37, 99, 235, 0.28);
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
 .btn-fullscreen {
   font-size: 12px;
   font-weight: 600;
-  background: rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.4);
-  color: #c4b5fd;
+  background: rgba(37, 99, 235, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #93c5fd;
 }
 .btn-fullscreen:hover {
-  background: rgba(139, 92, 246, 0.3);
-  border-color: #a78bfa;
-  color: #ede9fe;
+  background: rgba(37, 99, 235, 0.28);
+  border-color: #60a5fa;
+  color: #ffffff;
 }
 
 body.is-fullscreen .sidebar {
@@ -2326,20 +2358,22 @@ body.fullscreen .docked-inspector-tab {
   transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: hidden !important;
+  overflow-x: hidden !important;
 }
 
 .nav-drawer.open {
   transform: translateX(0);
 }
 
-/* Electric Blue Header Card (Matching Logo Mashimurelay) */
+/* Rich Royal Blue Header Card (Android Style Matching Logo Mashimurelay) */
 .drawer-header {
-  background: linear-gradient(135deg, #09335f 0%, #0052cc 45%, #0077ff 75%, #00d2ff 100%);
+  background: linear-gradient(135deg, #0f294a 0%, #1e40af 55%, #2563eb 100%);
+  border-bottom: 1px solid rgba(96, 165, 250, 0.25);
   padding: 24px 20px 20px 20px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 4px 16px rgba(0, 82, 204, 0.35);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.45);
   flex-shrink: 0;
 }
 
@@ -2391,7 +2425,7 @@ body.fullscreen .docked-inspector-tab {
 
 .drawer-project-subtitle {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(219, 234, 254, 0.9);
   font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
@@ -2399,15 +2433,22 @@ body.fullscreen .docked-inspector-tab {
   max-width: 190px;
 }
 
-/* Drawer Body & Menu Items */
+/* Drawer Body & Menu Items (Zero Horizontal Scrollbar) */
 .drawer-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden !important;
   padding: 10px 0;
   background: #16161e;
-  scrollbar-width: thin !important;
-  scrollbar-color: #3b82f6 rgba(15, 23, 42, 0.6) !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
   overscroll-behavior: contain;
+}
+
+.drawer-body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 .drawer-item {
@@ -2419,26 +2460,25 @@ body.fullscreen .docked-inspector-tab {
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: background-color 0.15s ease, color 0.15s ease;
   text-decoration: none;
   border: none;
   background: transparent;
   width: 100%;
+  max-width: 100%;
   text-align: left;
   box-sizing: border-box;
   font-family: inherit;
-  will-change: transform;
+  overflow: hidden;
 }
 
 .drawer-item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(37, 99, 235, 0.16);
   color: #ffffff;
-  transform: translateX(4px);
 }
 
 .drawer-item:active {
-  background: rgba(0, 119, 255, 0.25);
-  transform: translateX(2px) scale(0.98);
+  background: rgba(37, 99, 235, 0.28);
 }
 
 .drawer-icon {

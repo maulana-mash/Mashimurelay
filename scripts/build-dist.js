@@ -11,7 +11,7 @@ const { execSync } = require('child_process');
 
 const BASE_DIR = path.resolve(__dirname, '..');
 const WEB_DIST_DIR = path.resolve(BASE_DIR, 'dist');
-const WIN_DIST_DIR = path.resolve(BASE_DIR, '..', 'simurelay-windows', 'dist');
+const WIN_DIST_DIR = path.resolve(BASE_DIR, '..', 'mashimurelay-windows', 'dist');
 
 console.log('====================================================');
 console.log('      MASHIMURELAY PRODUCTION BUILD & MINIFIER      ');

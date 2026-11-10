@@ -26,7 +26,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const SRC_DEV_DIR = path.join(ROOT_DIR, 'src_dev');
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
-const WIN_DIST_DIR = path.resolve(ROOT_DIR, '..', 'simurelay-windows', 'dist');
+const WIN_DIST_DIR = path.resolve(ROOT_DIR, '..', 'mashimurelay-windows', 'dist');
 
 const RESERVED_GLOBALS = [
   'COMPONENTS_DATA',

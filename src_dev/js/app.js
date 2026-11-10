@@ -392,11 +392,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let options = [];
 
     if (isOverloadRelay(item.svgData)) {
-      pillSwitchOptions.style.display = 'none';
-      return;
-    }
-
-    if (isPushButton(item.svgData)) {
+      const isTripped = !!stored || !!(canvas.engine && canvas.engine.overloadTripped && canvas.engine.overloadTripped.get(item.id));
+      options = [
+        { pos: 0, val: false, label: 'NORMAL', isActive: !isTripped, isZero: false },
+        { pos: 1, val: true,  label: 'TRIP',   isActive: isTripped,  isZero: true }
+      ];
+    } else if (isPushButton(item.svgData)) {
       const isPressed = (canvas && canvas.activePressedButtonId === item.id) || (canvas && canvas.engine && !!canvas.engine.manualStates.get(item.id));
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -411,9 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bindMomentaryEvents(btn, item.id);
       pillSwitchOptions.appendChild(btn);
       return;
-    }
-
-    if (item.svgData === 'switch3p0') {
+    } else if (item.svgData === 'switch3p0') {
       // 3-posisi: I - 0 - II
       // 0: Pos I, 1: Pos 0 (OFF), 2: Pos II
       const curPos = (stored !== undefined) ? stored : 1;
@@ -467,6 +466,12 @@ document.addEventListener('DOMContentLoaded', () => {
           canvas.engine.setSwitchPosition(item.id, opt.pos);
         } else {
           canvas.engine.manualStates.set(item.id, opt.val);
+          if (item.svgData && item.svgData.includes('emergency') && canvas.engine.emergencyLatched) {
+            canvas.engine.emergencyLatched.set(item.id, opt.val);
+          }
+          if (isOverloadRelay(item.svgData) && canvas.engine.overloadTripped) {
+            canvas.engine.overloadTripped.set(item.id, opt.val);
+          }
           if (isPlainFuse(item.svgData) && opt.val) {
             canvas.engine.fuseBlownElements.delete(item.id);
           }
@@ -517,7 +522,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const compDef = COMPONENTS_DATA[item.svgData];
     pillLabel.textContent = item.tag || (compDef ? compDef.name : 'Elemen');
 
-    const isSwitch = (item.svgData === 'switch3p0' || item.svgData === 'switch3p' || isChangeoverSwitch(item.svgData) || (!isOverloadRelay(item.svgData) && compDef && (compDef.category === 'switches' || compDef.category === 'protections')));
+    const isSwitch = (item.svgData === 'switch3p0' || item.svgData === 'switch3p' || isChangeoverSwitch(item.svgData) || isOverloadRelay(item.svgData) || (compDef && (compDef.category === 'switches' || compDef.category === 'protections')));
 
     if (canvas.isSimulating) {
       if (pillEditControls) pillEditControls.style.display = 'none';
@@ -3353,7 +3358,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateInspector(curItem);
     },
     onShortCircuit: (isShort, shortInfo) => {
-      if (isShort) {
+      if (isShort && canvas && canvas.isSimulating) {
         const isDc = shortInfo && shortInfo.isDcOverheat;
         statusBadge.className = 'status-badge status-short-circuit';
         statusBadge.textContent = isDc ? 'DC OVERHEAT!' : 'SHORT CIRCUIT!';
@@ -3376,15 +3381,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         alertDismissedByUser = false;
-        if (alertBanner && !canvas.simResult?.isFuseBlown) {
+        const stillBlown = !!(canvas && canvas.isSimulating && canvas.simResult?.isFuseBlown);
+        if (alertBanner && !stillBlown) {
           alertBanner.style.display = 'none';
           alertBanner.classList.remove('pill-active');
           alertBanner.classList.remove('alert-fuse-blown');
         }
+        if (statusBadge && !stillBlown) {
+          const isRunning = !!(canvas && canvas.isSimulating);
+          statusBadge.className = isRunning ? 'status-badge status-running' : 'status-badge status-stopped';
+          statusBadge.textContent = isRunning ? 'RUNNING' : 'STOPPED';
+        }
       }
     },
     onFuseBlown: (isBlown, newlyBlownFuses) => {
-      if (isBlown) {
+      if (isBlown && canvas && canvas.isSimulating) {
         statusBadge.className = 'status-badge status-fuse-blown';
         statusBadge.textContent = 'FUSE BLOWN!';
         if (!alertDismissedByUser && alertBanner) {
@@ -3400,11 +3411,19 @@ document.addEventListener('DOMContentLoaded', () => {
             alertBanner.classList.remove('pill-active');
           }
         }
-      } else if (!canvas.simResult?.shortCircuit) {
-        if (alertBanner) {
-          alertBanner.classList.remove('alert-fuse-blown');
-          alertBanner.style.display = 'none';
-          alertBanner.classList.remove('pill-active');
+      } else {
+        const stillShort = !!(canvas && canvas.isSimulating && canvas.simResult?.shortCircuit);
+        if (!stillShort) {
+          if (alertBanner) {
+            alertBanner.classList.remove('alert-fuse-blown');
+            alertBanner.style.display = 'none';
+            alertBanner.classList.remove('pill-active');
+          }
+          if (statusBadge) {
+            const isRunning = !!(canvas && canvas.isSimulating);
+            statusBadge.className = isRunning ? 'status-badge status-running' : 'status-badge status-stopped';
+            statusBadge.textContent = isRunning ? 'RUNNING' : 'STOPPED';
+          }
         }
       }
 
@@ -3965,9 +3984,17 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
           ${(canvas.engine && canvas.engine.fuseBlownElements && canvas.engine.fuseBlownElements.has(item.id)) ? `
             <div style="font-size: 11px; color: #ef4444; font-weight: 600; margin-top: 6px; display: flex; align-items: center; gap: 4px;">
-              <span>⚠️ Sekring putus (melebur akibat hubung singkat / DC Overheat). Klik ON untuk mengganti sekring baru.</span>
+              <span>Sekring putus (melebur akibat hubung singkat / DC Overheat). Klik ON untuk mengganti sekring baru.</span>
             </div>
           ` : ''}
+        </div>` : ''}
+        ${isOverloadRelay(item.svgData) ? `
+        <div class="prop-group">
+          <label class="prop-label">Kondisi Overload (NORMAL - TRIP)</label>
+          <div style="display: flex; gap: 6px; margin-top: 6px;">
+            <button class="btn btn-sm btn-pos ${(!stored && !(canvas.engine && canvas.engine.overloadTripped && canvas.engine.overloadTripped.get(item.id))) ? 'btn-primary' : ''}" data-pos="0" data-val="false" style="flex: 1; padding: 6px 2px;">NORMAL</button>
+            <button class="btn btn-sm btn-pos ${(!!stored || !!(canvas.engine && canvas.engine.overloadTripped && canvas.engine.overloadTripped.get(item.id))) ? 'btn-primary' : ''}" data-pos="1" data-val="true" style="flex: 1; padding: 6px 2px;">TRIP</button>
+          </div>
         </div>` : ''}
         ${(!isPushButton(item.svgData) && !isChangeoverSwitch(item.svgData) && item.svgData !== 'switch3p0' && item.svgData !== 'switch3p' && !isOverloadRelay(item.svgData) && !isPlainFuse(item.svgData) && (compDef && (compDef.category === 'switches' || compDef.category === 'protections'))) ? `
         <div class="prop-group">
@@ -4059,6 +4086,12 @@ document.addEventListener('DOMContentLoaded', () => {
           } else {
             const boolVal = valAttr !== null ? (valAttr === 'true') : (pos === 1);
             canvas.engine.manualStates.set(item.id, boolVal);
+            if (item.svgData && item.svgData.startsWith('emergency')) {
+              canvas.engine.emergencyLatched.set(item.id, boolVal);
+            }
+            if (isOverloadRelay(item.svgData)) {
+              canvas.engine.overloadTripped.set(item.id, boolVal);
+            }
             if (isPlainFuse(item.svgData) && boolVal) {
               canvas.engine.fuseBlownElements.delete(item.id);
             }

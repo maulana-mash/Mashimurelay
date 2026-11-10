@@ -238,10 +238,23 @@ class SimurelayCanvas {
     for (const item of this.circuit.data) {
       if (typeof item.id === 'number' && item.id > maxId) maxId = item.id;
     }
+    if (this.isSimulating) {
+      this.stopSimulation();
+    }
     this.nextId = maxId + 1;
     this.selectedElementId = null;
     this.selectedConnectorId = null;
     this.engine.reset(false);
+    this.simResult = null;
+    if (this.options.onShortCircuit) {
+      this.options.onShortCircuit(false, null);
+    }
+    if (this.options.onFuseBlown) {
+      this.options.onFuseBlown(false, []);
+    }
+    if (this.options.onSimulationStateChange) {
+      this.options.onSimulationStateChange('STOPPED');
+    }
     this.undoStack = [];
     this.redoStack = [];
     this.notifyHistoryChange();
@@ -262,6 +275,9 @@ class SimurelayCanvas {
 
   clear() {
     if (this.isReviewMode) return;
+    if (this.isSimulating) {
+      this.stopSimulation();
+    }
     if (this.circuit && this.circuit.data && this.circuit.data.length > 0) {
       this.pushHistoryState();
     }
@@ -270,6 +286,16 @@ class SimurelayCanvas {
     this.selectedElementId = null;
     this.selectedConnectorId = null;
     this.engine.reset(false);
+    this.simResult = null;
+    if (this.options.onShortCircuit) {
+      this.options.onShortCircuit(false, null);
+    }
+    if (this.options.onFuseBlown) {
+      this.options.onFuseBlown(false, []);
+    }
+    if (this.options.onSimulationStateChange) {
+      this.options.onSimulationStateChange('STOPPED');
+    }
     this.render();
     if (this.options.onSelect) this.options.onSelect(null);
     if (this.options.onCircuitChanged && !this.isReviewMode) this.options.onCircuitChanged();
@@ -467,12 +493,23 @@ class SimurelayCanvas {
 
     let tag = null;
     const cat = compDef.category;
-    if (cat === 'coils') tag = '-K1';
-    else if (cat === 'contactors') tag = '-KM1';
-    else if (cat === 'protections') tag = '-Q1';
-    else if (cat === 'switches') tag = '-S1';
-    else if (cat === 'motors') tag = '-M1';
-    else if (cat === 'loads') tag = '-H1';
+    if (compDef.type === 'arrow' || svgName === 'arrowSource' || svgName === 'arrowDestination') {
+      tag = '-REF1';
+    } else if (cat === 'coils') {
+      tag = '-K1';
+    } else if (cat === 'contactors') {
+      tag = '-KM1';
+    } else if (cat === 'protections') {
+      tag = (svgName.startsWith('overload') || (svgName.startsWith('fuse') && !svgName.startsWith('fuseSwitch'))) ? '-F1' : '-Q1';
+    } else if (cat === 'switches') {
+      tag = '-S1';
+    } else if (cat === 'motors') {
+      tag = '-M1';
+    } else if (cat === 'loads') {
+      tag = '-H1';
+    } else if (cat === 'auxiliaries') {
+      tag = '-KM1';
+    }
 
     const isTextComp = (svgName === 'text');
     const newElem = {
@@ -714,7 +751,12 @@ class SimurelayCanvas {
       el.position.y = snapToGrid(el.position.y + deltaY);
 
       if (el.tag) {
-        el.tag = this.generateUniqueTag(el.tag);
+        const cDef = COMPONENTS_DATA[el.svgData];
+        const shouldKeepTag = (el.svgData === 'arrowDestination') ||
+          (cDef && (cDef.duplicateTag === 'true' || (cDef.info && cDef.info.duplicateTag === 'true')));
+        if (!shouldKeepTag) {
+          el.tag = this.generateUniqueTag(el.tag);
+        }
       }
 
       if (src.groupId) {
@@ -1939,6 +1981,12 @@ class SimurelayCanvas {
     }
     this.engine.reset(true);
     this.simResult = null;
+    if (this.options.onShortCircuit) {
+      this.options.onShortCircuit(false, null);
+    }
+    if (this.options.onFuseBlown) {
+      this.options.onFuseBlown(false, []);
+    }
     this.render();
     if (this.options.onSimulationStateChange) {
       this.options.onSimulationStateChange('STOPPED');
@@ -1950,6 +1998,7 @@ class SimurelayCanvas {
     if (!compDef) return;
 
     if (isPushButton(elem.svgData)) {
+      if (!this.isSimulating) return;
       this.engine.setButtonPressed(elem.id, true);
       this.simResult = this.engine.step({ elements: this.elements, connectors: this.connectors }, 0);
       this.updateSimulationVisuals();
@@ -1963,12 +2012,13 @@ class SimurelayCanvas {
         if (this.options.onButtonStateChange) this.options.onButtonStateChange(elem.id, false);
       }, 350);
       return;
-    } else if (compDef.type === 'emergency') {
+    } else if (compDef.type === 'emergency' || elem.svgData.includes('emergency')) {
       this.engine.toggleEmergency(elem.id);
-    } else if (compDef.category === 'protections' || compDef.category === 'switches') {
-      if (isOverloadRelay(elem.svgData)) {
-        return; // Overload relay is passive conductor, clicking does not toggle!
+      if (this.options.onSwitchClicked) {
+        const elemGroup = this.elementsGroup.querySelector(`[data-id="${elem.id}"]`);
+        this.options.onSwitchClicked(elem, elemGroup);
       }
+    } else if (compDef.category === 'protections' || compDef.category === 'switches') {
       if (isPlainFuse(elem.svgData)) {
         const currentStored = this.engine.manualStates.get(elem.id);
         const isOff = currentStored === false;
@@ -1977,8 +2027,15 @@ class SimurelayCanvas {
         if (newBool) {
           this.engine.fuseBlownElements.delete(elem.id);
         }
-        this.simResult = this.engine.step({ elements: this.elements, connectors: this.connectors }, 0);
-        this.updateSimulationVisuals();
+        if (this.isSimulating) {
+          this.simResult = this.engine.step({ elements: this.elements, connectors: this.connectors }, 0);
+          this.updateSimulationVisuals();
+        } else {
+          const elemGroup = this.elementsGroup.querySelector(`[data-id="${elem.id}"]`);
+          if (elemGroup && this.applyFrameToElementGroup) {
+            this.applyFrameToElementGroup(elemGroup, elem.id, newBool ? 0 : 1);
+          }
+        }
         if (this.options.onSwitchClicked) {
           const elemGroup = this.elementsGroup.querySelector(`[data-id="${elem.id}"]`);
           this.options.onSwitchClicked(elem, elemGroup);
@@ -1999,7 +2056,7 @@ class SimurelayCanvas {
   }
 
   updateSimulationVisuals() {
-    if (!this.simResult) return;
+    if (!this.simResult || !this.isSimulating) return;
 
     // Acoustic / Audio Engine Feedback
     if (window.soundManager) {
@@ -2327,7 +2384,9 @@ class SimurelayCanvas {
     const isNC = (elem.svgData && elem.svgData.includes('NC') && !elem.svgData.includes('NONC')) ||
                  (compDef && compDef.contacts && compDef.contacts.length > 0 && compDef.contacts.every(c => c.type === 'nc'));
     const isPlainF = isPlainFuse(elem.svgData);
-    const isContactClosed = isPlainF ? (frameIdx === 0) : (isCON ? true : (isNC ? (frameIdx === 0) : (frameIdx === 1)));
+    const isArrow = (elem.svgData === 'arrowSource' || elem.svgData === 'arrowDestination');
+    const isOverload = isOverloadRelay(elem.svgData);
+    const isContactClosed = (isPlainF || isOverload) ? (frameIdx === 0) : (isArrow ? true : (isCON ? true : (isNC ? (frameIdx === 0) : (frameIdx === 1))));
     const liveCol = getLiveColor();
     const shouldColorLive = this.isSimulating && isContactClosed && (liveCol !== '#ffffff');
 

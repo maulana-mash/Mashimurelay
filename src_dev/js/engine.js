@@ -172,19 +172,38 @@ class SimurelayEngine {
         setPinPot(el.id, 0, Potential.DC_P);
         setPinPot(el.id, 1, Potential.DC_N);
       } else if (svg === 'powerSupply2') {
-        setPinPot(el.id, 1, Potential.DC_P);
-        setPinPot(el.id, 3, Potential.DC_N);
+        const hasInWire = connectors.some(c =>
+          (c.idElementNode1 === el.id && (c.idNode1 === 0 || c.idNode1 === 2)) ||
+          (c.idElementNode2 === el.id && (c.idNode2 === 0 || c.idNode2 === 2))
+        );
+        if (!hasInWire) {
+          setPinPot(el.id, 1, Potential.DC_P);
+          setPinPot(el.id, 3, Potential.DC_N);
+        }
       } else if (svg === 'powerSupply') {
-        setPinPot(el.id, 1, Potential.DC_P);
-        setPinPot(el.id, 3, Potential.DC_P);
-        setPinPot(el.id, 5, Potential.DC_N);
-        setPinPot(el.id, 7, Potential.DC_N);
+        const hasInWire = connectors.some(c =>
+          (c.idElementNode1 === el.id && (c.idNode1 === 0 || c.idNode1 === 2 || c.idNode1 === 4)) ||
+          (c.idElementNode2 === el.id && (c.idNode2 === 0 || c.idNode2 === 2 || c.idNode2 === 4))
+        );
+        if (!hasInWire) {
+          setPinPot(el.id, 1, Potential.DC_P);
+          setPinPot(el.id, 3, Potential.DC_P);
+          setPinPot(el.id, 5, Potential.DC_N);
+          setPinPot(el.id, 7, Potential.DC_N);
+        }
         setPinPot(el.id, 6, Potential.PE);
       } else if (svg === 'generator3ph') {
-        setPinPot(el.id, 0, Potential.L1);
-        setPinPot(el.id, 1, Potential.L2);
-        setPinPot(el.id, 2, Potential.L3);
-        setPinPot(el.id, 3, Potential.N);
+        setPinPot(el.id, 4, Potential.L1);
+        const hasCtrlWire = connectors.some(c =>
+          (c.idElementNode1 === el.id && (c.idNode1 === 4 || c.idNode1 === 5)) ||
+          (c.idElementNode2 === el.id && (c.idNode2 === 4 || c.idNode2 === 5))
+        );
+        if (!hasCtrlWire) {
+          setPinPot(el.id, 0, Potential.L1);
+          setPinPot(el.id, 1, Potential.L2);
+          setPinPot(el.id, 2, Potential.L3);
+          setPinPot(el.id, 3, Potential.N);
+        }
       }
     }
 
@@ -195,6 +214,8 @@ class SimurelayEngine {
     let shortCircuitDetected = false;
     let shortedNets = [];
     const newlyBlownFuses = [];
+    const conductingDiodes = new Set();
+    const activePowerSupplies = new Set();
 
     const tagStateMap = this.tagStateMap;
     for (const el of elements) {
@@ -252,13 +273,15 @@ class SimurelayEngine {
         addEdge(p1, p2);
       }
 
-      // Cross-reference Arrow connections (e.g. -REF1)
-      const arrowSources = elements.filter(e => e.svgData === 'arrowSource' && e.tag);
-      const arrowDests = elements.filter(e => e.svgData === 'arrowDestination' && e.tag);
-      for (const asrc of arrowSources) {
-        for (const adst of arrowDests) {
-          if (asrc.tag === adst.tag) {
-            addEdge(`${asrc.id}:0`, `${adst.id}:0`);
+      // Cross-reference Arrow connections (e.g. -REF1, case-insensitive & trimmed)
+      const arrowElems = elements.filter(e => (e.svgData === 'arrowSource' || e.svgData === 'arrowDestination') && e.tag && e.tag.trim());
+      for (let i = 0; i < arrowElems.length; i++) {
+        const a1 = arrowElems[i];
+        const tag1 = a1.tag.trim().toUpperCase();
+        for (let j = i + 1; j < arrowElems.length; j++) {
+          const a2 = arrowElems[j];
+          if (a2.tag.trim().toUpperCase() === tag1) {
+            addEdge(`${a1.id}:0`, `${a2.id}:0`);
           }
         }
       }
@@ -272,11 +295,7 @@ class SimurelayEngine {
 
         // Diodes (Conduct from Anode:0 to Cathode:1 when forward biased)
         if (el.svgData === 'diode') {
-          const p0 = netResultMap.get(`${el.id}:0`) || pinPotentials.get(`${el.id}:0`) || Potential.NONE;
-          const p1 = netResultMap.get(`${el.id}:1`) || pinPotentials.get(`${el.id}:1`) || Potential.NONE;
-          const hasPos = (p0 & (Potential.L1 | Potential.L2 | Potential.L3 | Potential.DC_P)) !== 0;
-          const hasNeg = (p1 & (Potential.N | Potential.DC_N)) !== 0;
-          if (hasPos || hasNeg) {
+          if (conductingDiodes.has(el.id)) {
             addEdge(`${el.id}:0`, `${el.id}:1`);
           }
           elementFrames.set(el.id, 0);
@@ -316,9 +335,9 @@ class SimurelayEngine {
           continue;
         }
 
-        // Thermal Overload Relays (overload3p): power contacts 1-2, 3-4, 5-6 are closed unless tripped
+        // Thermal Overload Relays (overload1p, overload2p, overload3p): power contacts 1-2, 3-4, 5-6 are closed unless tripped
         if (el.svgData.startsWith('overload')) {
-          const isTripped = !!this.overloadTripped.get(el.id);
+          const isTripped = !!this.overloadTripped.get(el.id) || !!this.manualStates.get(el.id);
           elementFrames.set(el.id, isTripped ? 1 : 0);
           if (!isTripped && contacts.length > 0) {
             for (const c of contacts) {
@@ -333,8 +352,8 @@ class SimurelayEngine {
         let frameIdx = 0;
 
         if (cat === 'protections' || cat === 'switches') {
-          const isEmergencyLatched = !!this.emergencyLatched.get(el.id);
           const manualVal = this.manualStates.get(el.id);
+          const isEmergencyLatched = !!this.emergencyLatched.get(el.id) || !!manualVal;
           const isNC = el.svgData.includes('NC');
 
           if (el.svgData === 'switch3p0') {
@@ -372,7 +391,7 @@ class SimurelayEngine {
             const masterElem = elements.find(e => (e.tag && e.tag.trim() === tag) && e.id !== el.id);
             if (masterElem) {
               if (masterElem.svgData.startsWith('overload')) {
-                masterActive = !!this.overloadTripped.get(masterElem.id);
+                masterActive = !!this.overloadTripped.get(masterElem.id) || !!this.manualStates.get(masterElem.id);
               } else if (masterElem.svgData.includes('breaker')) {
                 masterActive = !!this.manualStates.get(masterElem.id);
               }
@@ -500,6 +519,15 @@ class SimurelayEngine {
           const compDef = COMPONENTS_DATA[el.svgData];
           if (!compDef) continue;
           const cat = compDef.category || '';
+          if (el.svgData === 'diode') {
+            const n0 = pinToNetId.get(`${el.id}:0`);
+            const n1 = pinToNetId.get(`${el.id}:1`);
+            if (n0 !== undefined && n1 !== undefined && n0 !== n1) {
+              if (!netAdj.has(n0)) netAdj.set(n0, []);
+              netAdj.get(n0).push({ toNet: n1, elemId: el.id });
+            }
+            continue;
+          }
           let isPassiveLoad = (cat === 'loads' || cat === 'coils' || el.svgData === 'motorDC' || el.svgData === 'motor1ph');
           if (!isPassiveLoad) continue;
 
@@ -577,6 +605,64 @@ class SimurelayEngine {
           };
 
           dfs(startNet.id, 0);
+        }
+      }
+
+      // Evaluate Forward-Biased Diodes and Conditional Power Supplies / 3-Phase Generators
+      const POS_MASK = Potential.L1 | Potential.L2 | Potential.L3 | Potential.DC_P;
+      const NEG_MASK = Potential.N | Potential.DC_N;
+      for (const el of elements) {
+        if (el.svgData === 'diode') {
+          const p0 = netResultMap.get(`${el.id}:0`) || Potential.NONE;
+          const p1 = netResultMap.get(`${el.id}:1`) || Potential.NONE;
+          const isForwardBiased = ((p0 & POS_MASK) !== 0 && (p0 & NEG_MASK) === 0 && (p1 & POS_MASK) === 0) ||
+                                  ((p1 & NEG_MASK) !== 0 && (p1 & POS_MASK) === 0 && (p0 & NEG_MASK) === 0);
+          if (isForwardBiased && !conductingDiodes.has(el.id)) {
+            conductingDiodes.add(el.id);
+            converged = false;
+          }
+        } else if (el.svgData === 'powerSupply2') {
+          const p0 = netResultMap.get(`${el.id}:0`) || Potential.NONE;
+          const p2 = netResultMap.get(`${el.id}:2`) || Potential.NONE;
+          if (this.isValidPair(p0, p2) && !activePowerSupplies.has(el.id)) {
+            activePowerSupplies.add(el.id);
+            setPinPot(el.id, 1, Potential.DC_P);
+            setPinPot(el.id, 3, Potential.DC_N);
+            converged = false;
+          }
+        } else if (el.svgData === 'powerSupply') {
+          const p0 = netResultMap.get(`${el.id}:0`) || Potential.NONE;
+          const p2 = netResultMap.get(`${el.id}:2`) || Potential.NONE;
+          const p4 = netResultMap.get(`${el.id}:4`) || Potential.NONE;
+          if ((this.isValidPair(p0, p2) || this.isValidPair(p4, p2) || this.isValidPair(p0, p4)) && !activePowerSupplies.has(el.id)) {
+            activePowerSupplies.add(el.id);
+            setPinPot(el.id, 1, Potential.DC_P);
+            setPinPot(el.id, 3, Potential.DC_P);
+            setPinPot(el.id, 5, Potential.DC_N);
+            setPinPot(el.id, 7, Potential.DC_N);
+            converged = false;
+          }
+        } else if (el.svgData === 'generator3ph') {
+          const hasCtrlWire = connectors.some(c =>
+            (c.idElementNode1 === el.id && (c.idNode1 === 4 || c.idNode1 === 5)) ||
+            (c.idElementNode2 === el.id && (c.idNode2 === 4 || c.idNode2 === 5))
+          );
+          if (!hasCtrlWire) {
+            elementFrames.set(el.id, 1);
+          } else {
+            const p4 = netResultMap.get(`${el.id}:4`) || Potential.NONE;
+            const p5 = netResultMap.get(`${el.id}:5`) || Potential.NONE;
+            const isActivated = (p5 & POS_MASK) !== 0 || this.isValidPair(p4, p5);
+            elementFrames.set(el.id, isActivated ? 1 : 0);
+            if (isActivated && !activePowerSupplies.has(el.id)) {
+              activePowerSupplies.add(el.id);
+              setPinPot(el.id, 0, Potential.L1);
+              setPinPot(el.id, 1, Potential.L2);
+              setPinPot(el.id, 2, Potential.L3);
+              setPinPot(el.id, 3, Potential.N);
+              converged = false;
+            }
+          }
         }
       }
 
@@ -949,11 +1035,43 @@ class SimurelayEngine {
             const v2 = netResultMap.get(`${el.id}:4`) || Potential.NONE;
             const w2 = netResultMap.get(`${el.id}:5`) || Potential.NONE;
 
-            const is3Ph_set1 = (u1 !== Potential.NONE && v1 !== Potential.NONE && w1 !== Potential.NONE);
-            const is3Ph_set2 = (u2 !== Potential.NONE && v2 !== Potential.NONE && w2 !== Potential.NONE);
+            const is3Ph_set1 = (u1 !== 0 && v1 !== 0 && w1 !== 0 && ((u1 | v1 | w1) & VALID_3PH) === VALID_3PH);
+            const is3Ph_set2 = (u2 !== 0 && v2 !== 0 && w2 !== 0 && ((u2 | v2 | w2) & VALID_3PH) === VALID_3PH);
 
-            const isRunning = is3Ph_set1 || is3Ph_set2;
-            elementFrames.set(el.id, isRunning ? 1 : 0);
+            let isRunning = false;
+            let activeU = u1, activeV = v1, activeW = w1;
+
+            if (el.svgData === 'motorStarDelta') {
+              const net3 = pinToNetId.get(`${el.id}:3`);
+              const net4 = pinToNetId.get(`${el.id}:4`);
+              const net5 = pinToNetId.get(`${el.id}:5`);
+              const isStarPoint = (net3 !== undefined && net3 === net4 && net4 === net5);
+              isRunning = is3Ph_set1 && (isStarPoint || is3Ph_set2);
+            } else {
+              isRunning = is3Ph_set1 || is3Ph_set2;
+              if (!is3Ph_set1 && is3Ph_set2) {
+                activeU = u2; activeV = v2; activeW = w2;
+              }
+            }
+
+            let frame = 0;
+            if (isRunning) {
+              const hasL1_u = (activeU & Potential.L1) !== 0;
+              const hasL2_u = (activeU & Potential.L2) !== 0;
+              const hasL3_u = (activeU & Potential.L3) !== 0;
+
+              const hasL1_v = (activeV & Potential.L1) !== 0;
+              const hasL2_v = (activeV & Potential.L2) !== 0;
+              const hasL3_v = (activeV & Potential.L3) !== 0;
+
+              const hasL1_w = (activeW & Potential.L1) !== 0;
+              const hasL2_w = (activeW & Potential.L2) !== 0;
+              const hasL3_w = (activeW & Potential.L3) !== 0;
+
+              const isReverse = (hasL3_u && hasL2_v && hasL1_w) || (hasL1_u && hasL3_v && hasL2_w) || (hasL2_u && hasL1_v && hasL3_w);
+              frame = isReverse ? 2 : 1;
+            }
+            elementFrames.set(el.id, frame);
           } else {
             const potA = netResultMap.get(`${el.id}:0`) || Potential.NONE;
             const potB = netResultMap.get(`${el.id}:1`) || Potential.NONE;
@@ -1002,6 +1120,12 @@ class SimurelayEngine {
     } else {
       const current = !!this.manualStates.get(elemId);
       this.manualStates.set(elemId, !current);
+      if (this.emergencyLatched.has(elemId)) {
+        this.emergencyLatched.set(elemId, !current);
+      }
+      if (this.overloadTripped.has(elemId) || (svgData && svgData.startsWith('overload'))) {
+        this.overloadTripped.set(elemId, !current);
+      }
       return !current;
     }
   }
@@ -1016,17 +1140,20 @@ class SimurelayEngine {
   }
 
   toggleEmergency(elemId) {
-    const latched = this.emergencyLatched.get(elemId) || false;
+    const latched = !!(this.emergencyLatched.get(elemId) || this.manualStates.get(elemId));
     this.emergencyLatched.set(elemId, !latched);
+    this.manualStates.set(elemId, !latched);
     return !latched;
   }
 
   tripOverload(elemId) {
     this.overloadTripped.set(elemId, true);
+    this.manualStates.set(elemId, true);
   }
 
   resetOverload(elemId) {
     this.overloadTripped.set(elemId, false);
+    this.manualStates.set(elemId, false);
   }
 }
 

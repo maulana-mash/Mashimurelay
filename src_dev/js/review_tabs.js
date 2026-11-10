@@ -99,11 +99,51 @@ class ReviewTabManager {
     }
   }
 
+  resetSimulationAndAlerts() {
+    if (this.canvas) {
+      if (typeof this.canvas.stopSimulation === 'function') {
+        this.canvas.stopSimulation();
+      }
+      this.canvas.isSimulating = false;
+      this.canvas.simResult = null;
+      if (this.canvas.engine && typeof this.canvas.engine.reset === 'function') {
+        this.canvas.engine.reset(false);
+      }
+      if (this.canvas.options) {
+        if (typeof this.canvas.options.onShortCircuit === 'function') {
+          this.canvas.options.onShortCircuit(false, null);
+        }
+        if (typeof this.canvas.options.onFuseBlown === 'function') {
+          this.canvas.options.onFuseBlown(false, []);
+        }
+        if (typeof this.canvas.options.onSimulationStateChange === 'function') {
+          this.canvas.options.onSimulationStateChange('STOPPED');
+        }
+      }
+    }
+
+    const statusBadgeEl = document.getElementById('statusBadge');
+    if (statusBadgeEl) {
+      statusBadgeEl.className = 'status-badge status-stopped';
+      statusBadgeEl.textContent = 'STOPPED';
+    }
+    const alertBannerEl = document.getElementById('alertBanner');
+    if (alertBannerEl) {
+      alertBannerEl.style.display = 'none';
+      alertBannerEl.classList.remove('pill-active', 'alert-fuse-blown');
+    }
+    const btnRunEl = document.getElementById('btnRun');
+    const btnStopEl = document.getElementById('btnStop');
+    if (btnRunEl) btnRunEl.style.display = 'inline-flex';
+    if (btnStopEl) btnStopEl.style.display = 'none';
+  }
+
   openReviewTab(sub, queueIdx = -1, allSubmissions = null) {
     if (!sub) return;
 
     // Save teacher's current circuit to memory before viewing student task
     if (this.activeTabId === 'workspace' && this.canvas) {
+      this.resetSimulationAndAlerts();
       this.workspaceStash = this.canvas.getCircuitJson();
       if (this.projectManager) {
         this.projectManager.autoSaveCurrent();
@@ -223,6 +263,9 @@ class ReviewTabManager {
     this.activeTabId = tabId;
     const modalHotspot = document.getElementById('modalClassroomHotspot');
 
+    // Cleanly stop simulation and clear any short-circuit/overheat/fuse alert from previous tab
+    this.resetSimulationAndAlerts();
+
     if (target.type === 'workspace') {
       // Restore Teacher Workspace Mode
       if (this.canvas) {
@@ -236,6 +279,7 @@ class ReviewTabManager {
           }
         }
       }
+      this.resetSimulationAndAlerts();
 
       document.body.classList.remove('review-mode-active');
       if (this.reviewModeBanner) {
@@ -304,6 +348,7 @@ class ReviewTabManager {
           this.canvas.zoomToFit();
         }
       }
+      this.resetSimulationAndAlerts();
 
       // Pastikan modal Hotspot Guru tersembunyi di tab siswa (tidak melayang / docked di tab siswa)
       if (modalHotspot) {
