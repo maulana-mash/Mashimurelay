@@ -1,55 +1,136 @@
-<p align="center">
-  <img src="assets/logo_mashimurelay.png" alt="Mashimurelay Logo" width="160" />
-</p>
+<div align="center">
+  <img src="assets/logo_mashimurelay.png" alt="Mashimurelay Logo" width="140" />
 
-# Mashimurelay — Electromechanical Relay CAD Simulator
+  <h1>Mashimurelay</h1>
+  <p><strong>Industrial Electromechanical Relay & Motor Control CAD Simulator</strong></p>
 
-> High-performance electromechanical relay CAD simulator and circuit solver powered by BFS/DFS equipotential graph traversal for AC 3-phase and DC series-parallel loads. Built with a 60 FPS HTML5 Canvas 2D engine, native Web Audio API synthesis, multi-project LocalStorage schema, and offline PWA service worker with zero external dependencies.
-
-Aplikasi CAD simulator rangkaian relay elektromekanikal dan kontrol motor industri untuk web desktop dan web mobile (Chrome Mobile, Android, iOS, Windows, macOS). Berdiri sendiri (*fully standalone*) dengan dukungan mode **WebView Desktop App**, **Browser Web CAD**, dan **Offline PWA**.
+  <p>
+    <a href="https://mashimurelay.netlify.app/">
+      <img src="https://img.shields.io/badge/Live_Demo-mashimurelay.netlify.app-0284c7?style=flat-square" alt="Live Web Simulator" />
+    </a>
+    <img src="https://img.shields.io/badge/Standard-IEC_60617-1e293b?style=flat-square" alt="IEC 60617 Standard" />
+    <img src="https://img.shields.io/badge/Components-117_Industrial_Symbols-0f766e?style=flat-square" alt="117 Components" />
+    <img src="https://img.shields.io/badge/Platforms-Web_%7C_Windows_%7C_Android-334155?style=flat-square" alt="Platforms" />
+    <img src="https://img.shields.io/badge/Dependencies-Zero_External_Libs-475569?style=flat-square" alt="Zero Dependencies" />
+  </p>
+</div>
 
 ---
 
-## ⚡ Cara Menjalankan
+## Overview
 
-Pilih salah satu cara paling nyaman berikut:
+**Mashimurelay** adalah perangkat lunak Computer-Aided Design (CAD) dan simulator waktu nyata (*real-time*) untuk perancangan rangkaian kontrol relay elektromekanikal serta instalasi motor listrik industri berstandar **IEC 60617**.
 
-### Opsi 1: Mode WebView App (Rekomendasi - Seperti Aplikasi Desktop Asli)
-Cukup klik ganda:
-```text
+Dirancang khusus untuk kebutuhan pendidikan vokasi, pelatihan ketenagalistrikan, dan rekayasa otomasi industri, Mashimurelay mengintegrasikan **Discrete-Event Equipotential Graph Solver** dengan iterasi titik tetap (*fixed-point iteration*) yang mampu menyelesaikan topologi rangkaian AC 1-fasa, AC 3-fasa, maupun DC secara presisi pada laju 60 FPS tanpa ketergantungan pustaka eksternal.
+
+---
+
+## Core Engineering Capabilities
+
+### 1. Discrete-Event Equipotential Circuit Solver
+- **Multi-Rail Bitmask Propagation**: Melacak distribusi potensial `L1`, `L2`, `L3`, `N`, `PE`, `DC+`, dan `DC-` secara simultan melalui algoritma *Breadth-First Search* (BFS) pada graf konduktif.
+- **Series & Parallel Load Resolution**: Menyelesaikan pembagian arus pada beban pasif 2-terminal yang disusun seri maupun paralel menggunakan penelusuran lintasan berarah *Depth-First Search* (DFS), termasuk konduksi searah pada semikonduktor dioda (*forward-bias* vs *reverse-bias*).
+- **Fixed-Point Convergence Loop**: Mengevaluasi umpan balik instan antara koil kontaktor, relay tunda waktu (*timer*), kontak bantu (*auxiliary contacts*), serta *interlock* mekanis hingga mencapai titik ekuilibrium dalam satu siklus frame.
+- **Fault & Thermal Protection Modeling**: Mendeteksi hubung singkat (*short circuit*) antar-fasa, fasa-ke-netral, dan panas berlebih DC (*DC overheat*), lengkap dengan karakteristik peleburan sekring (*fuse thermal melting*) serta pengujian *trip* pada *Thermal Overload Relay*.
+
+### 2. Complete IEC 60617 Component Library (117 Symbols)
+Seluruh simbol komponen dirender dalam format vektor SVG presisi tinggi yang dikelompokkan ke dalam 9 kategori standar industri:
+
+| Kategori | Cakupan Komponen Utama |
+| :--- | :--- |
+| **Sources** | Suplai Fasa (`L1`, `L2`, `L3`, `3P`, `3P+N`), Netral (`N`), Ground (`PE`), Suplai DC (`+`, `-`, Battery), Power Supply AC/DC (1P & 3P dengan input kondisional), Generator 3-Fasa (Manual & Auto Control `C1-C2`). |
+| **Protections** | Circuit Breaker / MCB (1P–4P), Thermal-Magnetic Breaker, Motor Protection Breaker, RCCB, RCBO, Fuse (1P–3P + N), Fuse-Switch Disconnector, Isolator, Thermal Overload Relay (1P–3P dengan fitur *Test-Trip*). |
+| **Switches** | Saklar Manual (`NO`, `NC`, `CON`), Saklar Selektor 3-Posisi (`I-0-II` & `I-II-III`), Pushbutton (`NO`, `NC`, `CON`, `NONC`, `Crossover`), Emergency Stop (`NO`, `NC`, `CON`, `NONC`), Limit Switch, Roller, Pedal, Key, Pressure, Temperature, Float, Flow, & Proximity Sensor. |
+| **Contactors** | Kontaktor Daya Utama `NO` dan `NC` (1-Pole hingga 4-Pole) dengan sinkronisasi tag referensi koil (`-KM`). |
+| **Coils & Timers** | Koil Kontaktor Standar, Latching Relay Coil, Solenoid Coil, On-Delay Timer (`KT`), Off-Delay Timer, On-Off Delay Timer, Flasher / Blinker Relay, dan Phase Failure Relay (`PFR`). |
+| **Auxiliaries** | Kontak Bantu Instan (`NO`, `NC`, `CON`, `NONC`), Kontak Bantu Tunda Waktu (*On-Delay*, *Off-Delay*, *On-Off Delay*), serta Kontak Bantu *Thermal Overload* (`95-96` NC & `97-98` NO). |
+| **Motors** | Motor Induksi 3-Fasa (`U1, V1, W1`), Motor 3-Fasa 6-Terminal *Star-Delta* (`U1, V1, W1 - W2, U2, V2`), Motor Dahlander 2-Kecepatan, Motor 2-Belitan Terpisah, Motor Induksi 1-Fasa, dan Motor DC (mendukung deteksi putaran *Clockwise* & *Counter-Clockwise*). |
+| **Loads** | Lampu Indikator (5 pilihan spektrum warna), Lampu Kedip (*Blinking Lamp*), Buzzer, Siren, dan Bell / Ring dengan sintesis audio waktu nyata. |
+| **Others** | Terminal Block, Junction Node, *Cross-Reference Arrows* (`arrowSource` & `arrowDestination` dengan tautan otomatis `-REF1`), Dioda Penyearah, dan Anotasi Teks CAD. |
+
+### 3. Pedagogical & Engineering Productivity Tools
+- **Kit Praktikum Guru (Teacher Lock Mode)**: Memungkinkan instruktur mengunci posisi dan properti komponen tertentu pada soal praktikum siswa, dilengkapi ekspor/impor kode QR terenkripsi.
+- **Technical PDF Report Generator**: Menghasilkan dokumen laporan teknis skematik rangkaian beserta daftar komponen (*Bill of Materials*) siap cetak.
+- **Built-in Industrial Templates**: Menyediakan rangkaian standar siap uji, meliputi *Direct On-Line (DOL) Starter*, *Forward-Reverse Interlock*, dan *Automatic Star-Delta Starter*.
+- **Encyclopedia & Interactive Video Guide**: Dokumentasi teknis internal untuk setiap komponen beserta panduan interaktif penggunaan ruang kerja CAD.
+
+---
+
+## Multi-Platform Ecosystem
+
+Mashimurelay dibangun dalam arsitektur tiga platform yang saling kompatibel melalui format berkas proyek standar (`.smrl` / `.srelay`):
+
+1. **Mashimurelay Web (PWA)**
+   Berjalan langsung di peramban modern (Desktop & Mobile) dengan dukungan *Service Worker* untuk pengoperasian penuh secara luring (*offline-first*).
+   - **Akses Online**: [https://mashimurelay.netlify.app/](https://mashimurelay.netlify.app/)
+2. **Mashimurelay Windows Desktop (`Rust Tauri v2`)**
+   Aplikasi desktop native Windows dengan jejak memori minimal, asosiasi berkas `.smrl` langsung dari Windows Explorer, serta tersedia dalam edisi *Standalone Portable* (`Mashimurelay.exe`) dan *NSIS Installer* (`Mashimurelay_Setup.exe`).
+3. **Mashimurelay Android (`100% Pure Kotlin Native`)**
+   Aplikasi Android native murni (`com.mashimurelay.app`) dengan akselerasi perangkat keras `android.graphics.Canvas` 60–120 FPS tanpa ketergantungan WebView.
+
+---
+
+## Running Locally (Web Workspace)
+
+Proyek ini tidak memerlukan proses instalasi *dependency* eksternal (`npm install` tidak diperlukan untuk menjalankan aplikasi).
+
+### Opsi 1: Mode Standalone App Window
+Jalankan skrip peluncur berikut untuk membuka simulator dalam jendela aplikasi mandiri:
+```bat
 run-webview-app.bat
 ```
-Aplikasi akan langsung terbuka dalam jendela mandiri (*standalone window*) tanpa bilah URL atau tab browser.
 
-### Opsi 2: Mode Browser (Google Chrome / Microsoft Edge / Mobile)
-Klik ganda:
-```text
+### Opsi 2: Mode Browser Standar
+Jalankan server HTTP lokal bawaan:
+```bat
 run-browser.bat
 ```
-Aplikasi akan membuka browser standar di alamat `http://localhost:8080/index.html`.
+Atau menggunakan Python secara langsung:
+```bash
+python serve.py
+```
+Kemudian buka `http://localhost:8080` pada peramban Anda.
 
-### Opsi 3: Menu Interaktif
-Klik ganda:
-```text
-launch.bat
+### Build & Minification Pipeline (Development -> Production)
+Seluruh kode sumber pengembangan yang bersih berada di dalam direktori `src_dev/`. Untuk mengompilasi, meminifikasi, dan menyinkronkan bundel produksi ke direktori root, `dist/`, `public/`, serta proyek Windows dan Android, jalankan:
+```bash
+node scripts/build-secure.js
 ```
 
 ---
 
-## 📁 Struktur Direktori `simurelay-web` (100% Mandiri)
+## Repository Structure
 
 ```text
-simurelay-web/
-├── run-webview-app.bat      <-- Launcher aplikasi mode desktop WebView
-├── run-browser.bat          <-- Launcher mode browser
-├── launch.bat               <-- Menu launcher interaktif
-├── serve.py                 <-- Server lokal mandiri (Python HTTP Server)
-├── index.html               <-- Antarmuka CAD utama
-├── components.json          <-- Database 120 komponen industri
-├── css/                     <-- Gaya antarmuka & dark theme (#121216)
-├── js/                      <-- Mesin simulasi & canvas renderer
-└── assets/                  <-- Salinan simbol SVG vektor asli
+mashimurelay-web/
+├── src_dev/                     # Clean development source code
+│   ├── index.html               # Main CAD & workspace markup
+│   ├── components.json          # IEC 60617 component definitions & pin topology
+│   ├── css/
+│   │   └── style.css            # Dark engineering theme (#121216) & layout styles
+│   └── js/
+│       ├── engine.js            # Equipotential graph solver & state machine engine
+│       ├── canvas.js            # Interactive SVG/Canvas CAD renderer & wire router
+│       ├── app.js               # Workspace controller, inspector, & UI orchestration
+│       ├── components_data.js   # Vector symbol registry & geometry metadata
+│       ├── encyclopedia_data.js # Technical reference database for all components
+│       ├── examples_data.js     # Pre-built industrial motor control templates
+│       ├── pdf_report_generator.js # Vector schematic & BOM PDF exporter
+│       └── sound_manager.js     # Web Audio API electromechanical sound synthesizer
+├── assets/                      # SVG vector symbols, icons, and Android APK distribution
+├── dist/                        # Minified production bundle (Netlify / static hosting)
+├── public/                      # Static mirror bundle
+├── scripts/
+│   ├── build-secure.js          # Controlled minification & cross-platform sync script
+│   └── build-dist.js            # Distribution packaging helper
+├── netlify.toml                 # Netlify headers, caching, and deployment rules
+├── manifest.json                # Progressive Web App (PWA) manifest
+└── sw.js                        # Offline-first Service Worker
 ```
 
-> [!NOTE]
-> Proyek ini **100% independen** dari versi Android (`simurelay-android`). Modifikasi atau perubahan berkas di folder ini tidak akan pernah mempengaruhi proyek Android, begitu pun sebaliknya.
+---
+
+## License & Attribution
+
+Copyright © 2026 **Mashimurelay Engineering Project**. All rights reserved.
+Designed and engineered for electrical engineering education, vocational training, and industrial automation simulation.
