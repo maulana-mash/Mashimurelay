@@ -5,8 +5,8 @@
   <p><strong>Industrial Electromechanical Relay & Motor Control CAD Simulator</strong></p>
 
   <p>
-    <a href="https://mashimurelay.netlify.app/">
-      <img src="https://img.shields.io/badge/Live_Demo-mashimurelay.netlify.app-0284c7?style=flat-square" alt="Live Web Simulator" />
+    <a href="https://mashimurelay.vercel.app/">
+      <img src="https://img.shields.io/badge/Live_Demo-mashimurelay.vercel.app-0284c7?style=flat-square" alt="Live Web Simulator" />
     </a>
     <img src="https://img.shields.io/badge/Standard-IEC_60617-1e293b?style=flat-square" alt="IEC 60617 Standard" />
     <img src="https://img.shields.io/badge/Components-117_Industrial_Symbols-0f766e?style=flat-square" alt="117 Components" />
@@ -62,7 +62,7 @@ Mashimurelay dibangun dalam arsitektur tiga platform yang saling kompatibel mela
 
 1. **Mashimurelay Web (PWA)**
    Berjalan langsung di peramban modern (Desktop & Mobile) dengan dukungan *Service Worker* untuk pengoperasian penuh secara luring (*offline-first*).
-   - **Akses Online**: [https://mashimurelay.netlify.app/](https://mashimurelay.netlify.app/)
+   - **Akses Online**: [https://mashimurelay.vercel.app/](https://mashimurelay.vercel.app/)
 2. **Mashimurelay Windows Desktop (`Rust Tauri v2`)**
    Aplikasi desktop native Windows dengan jejak memori minimal, asosiasi berkas `.smrl` langsung dari Windows Explorer, serta tersedia dalam edisi *Standalone Portable* (`Mashimurelay.exe`) dan *NSIS Installer* (`Mashimurelay_Setup.exe`).
 3. **Mashimurelay Android (`100% Pure Kotlin Native`)**
