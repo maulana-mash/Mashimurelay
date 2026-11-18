@@ -60,13 +60,13 @@ Seluruh simbol komponen dirender dalam format vektor SVG presisi tinggi yang dik
 
 Mashimurelay dibangun dalam arsitektur tiga platform yang saling kompatibel melalui format berkas proyek standar (`.smrl` / `.srelay`):
 
-1. **Mashimurelay Web (PWA)**
+1. **[Mashimurelay Web](https://github.com/maulana-mash/Mashimurelay-Web)** (`PWA & Online Simulator`) — **Repositori ini.**
    Berjalan langsung di peramban modern (Desktop & Mobile) dengan dukungan *Service Worker* untuk pengoperasian penuh secara luring (*offline-first*).
    - **Akses Online**: [https://mashimurelay.vercel.app/](https://mashimurelay.vercel.app/)
-2. **Mashimurelay Windows Desktop (`Rust Tauri v2`)**
-   Aplikasi desktop native Windows dengan jejak memori minimal, asosiasi berkas `.smrl` langsung dari Windows Explorer, serta tersedia dalam edisi *Standalone Portable* (`Mashimurelay.exe`) dan *NSIS Installer* (`Mashimurelay_Setup.exe`).
-3. **Mashimurelay Android (`100% Pure Kotlin Native`)**
-   Aplikasi Android native murni (`com.mashimurelay.app`) dengan akselerasi perangkat keras `android.graphics.Canvas` 60–120 FPS tanpa ketergantungan WebView.
+2. **[Mashimurelay Windows Desktop](https://github.com/maulana-mash/Mashimurelay.exe)** (`Rust Tauri v2 Desktop`)
+   Aplikasi desktop native Windows dengan jejak memori minimal, microserver Hotspot LAN offline, pengelolaan sesi kelas/ujian, serta tersedia dalam edisi *Standalone Portable* (`Mashimurelay.exe`) dan *NSIS Installer* (`Mashimurelay_Setup.exe`).
+3. **[Mashimurelay Android](https://github.com/maulana-mash/Mashimurelay.apk)** (`100% Pure Kotlin Native`)
+   Aplikasi Android native murni (`com.mashimurelay.app`) dengan akselerasi perangkat keras `android.graphics.Canvas` 60–120 FPS tanpa ketergantungan WebView untuk perangkat siswa di laboratorium.
 
 ---
 
