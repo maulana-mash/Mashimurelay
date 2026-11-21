@@ -276,7 +276,7 @@ class SimurelaySoundManager {
       const cat = compDef ? compDef.category : '';
 
       if (cat === 'motors') {
-        if (frame === 1 || frame === 2) anyMotorSpinning = true;
+        if (frame >= 1 && frame <= 4) anyMotorSpinning = true;
       } else if (el.svgData === 'buzzer') {
         if (frame === 1) anyBuzzerActive = true;
       } else if (el.svgData === 'siren') {

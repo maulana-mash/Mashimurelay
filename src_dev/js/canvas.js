@@ -2063,10 +2063,17 @@ class SimurelayCanvas {
       window.soundManager.update(this.simResult, this.elements);
     }
 
-    // Check Short Circuit
-    if (this.simResult.shortCircuit) {
+    // Check Short Circuit & Earth Leakage
+    if (this.simResult.shortCircuit || this.simResult.isEarthLeakage) {
       const isDcOverheat = !!this.simResult.isDcOverheat;
-      if (this.options.onShortCircuit) this.options.onShortCircuit(true, { isDcOverheat });
+      const isEarthLeakage = !!this.simResult.isEarthLeakage;
+      if (this.options.onShortCircuit) {
+        this.options.onShortCircuit(true, {
+          isDcOverheat,
+          isEarthLeakage,
+          isShortCircuit: !!this.simResult.shortCircuit
+        });
+      }
     } else {
       if (this.options.onShortCircuit) this.options.onShortCircuit(false, null);
     }
@@ -2081,6 +2088,22 @@ class SimurelayCanvas {
       this.options.onFuseBlown(!!this.simResult.isFuseBlown, this.simResult.newlyBlownFuses);
     }
 
+    // Check Auto-Tripped Breakers (MCB/MPCB/TM/RCBO short circuit & RCCB/RCBO earth leakage)
+    if (this.simResult.newlyTrippedBreakers && this.simResult.newlyTrippedBreakers.length > 0) {
+      if (window.soundManager && typeof window.soundManager.playOneShot === 'function') {
+        window.soundManager.playOneShot('switch', 0.95);
+      } else if (typeof window.playFuseBlownSound === 'function') {
+        window.playFuseBlownSound();
+      }
+    }
+    if (this.options.onBreakerTripped) {
+      this.options.onBreakerTripped(
+        this.simResult.trippedBreakerTags || [],
+        this.simResult.trippedEarthLeakageTags || [],
+        this.simResult.newlyTrippedBreakers || []
+      );
+    }
+
     // Set of pins belonging to DC Overheat shorted nets
     const dcOverheatPins = new Set();
     if (this.simResult.isDcOverheat && this.simResult.shortedNets) {
@@ -2091,7 +2114,7 @@ class SimurelayCanvas {
       }
     }
 
-    // Update wire colors and glow
+    // Update wire colors and glow (Per-Net fault coloring: only faulted net glows orange/red)
     const wirePaths = this.wiresGroup.querySelectorAll('.circuit-wire path');
     wirePaths.forEach(path => {
       const connId = parseInt(path.getAttribute('data-id'));
@@ -2099,26 +2122,32 @@ class SimurelayCanvas {
       const color = getPotentialColor(pot);
       path.setAttribute('stroke', color);
 
-      // Check if wire is part of DC Overheat short circuit
+      // Check if wire is part of DC Overheat or AC Short / Earth Fault net
       const wireElem = this.circuit.data.find(d => d.id === connId && d.type === 'Connector');
-      const isOverheatedWire = wireElem && dcOverheatPins.size > 0 &&
+      const isOverheatedWire = (pot === Potential.DC_OVERHEAT) || (wireElem && dcOverheatPins.size > 0 &&
         (dcOverheatPins.has(`${wireElem.idElementNode1}:${wireElem.idNode1}`) ||
-         dcOverheatPins.has(`${wireElem.idElementNode2}:${wireElem.idNode2}`));
+         dcOverheatPins.has(`${wireElem.idElementNode2}:${wireElem.idNode2}`)));
+      const isAcShortWire = !isOverheatedWire && (pot === Potential.AC_SHORT);
 
       if (isOverheatedWire) {
         path.classList.add('wire-dc-overheat');
+        path.classList.remove('wire-ac-short');
+      } else if (isAcShortWire) {
+        path.classList.add('wire-ac-short');
+        path.classList.remove('wire-dc-overheat');
       } else {
         path.classList.remove('wire-dc-overheat');
+        path.classList.remove('wire-ac-short');
       }
 
       if (pot !== Potential.NONE && this.enableWireGlow) {
         path.classList.add('wire-energized');
-        if (!isOverheatedWire) {
+        if (!isOverheatedWire && !isAcShortWire) {
           path.style.filter = `drop-shadow(0 0 6px ${color})`;
         }
       } else {
         path.classList.remove('wire-energized');
-        if (!isOverheatedWire) {
+        if (!isOverheatedWire && !isAcShortWire) {
           path.style.filter = 'none';
         }
       }
@@ -2215,6 +2244,8 @@ class SimurelayCanvas {
 
       // Determine arrowhead paths (motorDC has swapped IDs compared to other motor SVGs)
       const isMotorDC = (elem.svgData === 'motorDC');
+      const isTwoSpeedMotor = (elem.svgData === 'motorDhalander' || elem.svgData === 'motorTwoSpeeds');
+      const isModeMotor = (elem.svgData === 'motorStarDelta' || isTwoSpeedMotor);
       const cwArrow = isMotorDC ? pathFill4 : pathFill3;
       const ccwArrow = isMotorDC ? pathFill3 : pathFill4;
 
@@ -2226,37 +2257,44 @@ class SimurelayCanvas {
         if (strokePath2) strokePath2.style.display = 'none';
         if (strokePath3) strokePath3.style.display = 'none';
         if (indicatorGroup) indicatorGroup.style.display = 'none';
-        group.classList.remove('motor-spin-cw', 'motor-spin-ccw');
-      } else if (frameIdx === 1) {
-        // Clockwise rotation (Head leads forward in CW direction)
+        group.classList.remove('motor-spin-cw', 'motor-spin-ccw', 'motor-spin-fast');
+      } else if (frameIdx === 5) {
+        // Dual-winding conflict / stall (red warning rotor body, stopped)
+        if (fillPath1) {
+          fillPath1.style.display = 'inline';
+          fillPath1.style.fill = '#ef4444';
+          fillPath1.style.opacity = '0.92';
+        }
+        if (strokePath1) strokePath1.style.display = 'none';
+        if (pathFill3) pathFill3.style.display = 'none';
+        if (pathFill4) pathFill4.style.display = 'none';
+        if (strokePath2) strokePath2.style.display = 'none';
+        if (strokePath3) strokePath3.style.display = 'none';
+        if (indicatorGroup) indicatorGroup.style.display = 'none';
+        group.classList.remove('motor-spin-cw', 'motor-spin-ccw', 'motor-spin-fast');
+      } else if (frameIdx >= 1 && frameIdx <= 4) {
+        const isCW = (frameIdx === 1 || frameIdx === 3);
+        const isMode2 = (frameIdx === 3 || frameIdx === 4); // Delta (Δ) or Speed 2 (2)
         if (fillPath1) {
           fillPath1.style.display = 'inline';
           fillPath1.style.fill = '#facc15';
           fillPath1.style.opacity = '0.92';
         }
         if (strokePath1) strokePath1.style.display = 'inline';
-        if (cwArrow) cwArrow.style.display = 'inline';
-        if (ccwArrow) ccwArrow.style.display = 'none';
-        if (strokePath2) strokePath2.style.display = 'inline';
-        if (strokePath3) strokePath3.style.display = 'inline';
-        if (indicatorGroup) indicatorGroup.style.display = 'inline';
-        group.classList.remove('motor-spin-ccw');
-        group.classList.add('motor-spin-cw');
-      } else if (frameIdx === 2) {
-        // Counter-Clockwise rotation (Head leads forward in CCW direction)
-        if (fillPath1) {
-          fillPath1.style.display = 'inline';
-          fillPath1.style.fill = '#facc15';
-          fillPath1.style.opacity = '0.92';
+        if (cwArrow) cwArrow.style.display = isCW ? 'inline' : 'none';
+        if (ccwArrow) ccwArrow.style.display = isCW ? 'none' : 'inline';
+        if (isModeMotor) {
+          // strokePath2 = 'Y' / '1' (frames 1-2), strokePath3 = 'Δ' / '2' (frames 3-4)
+          if (strokePath2) strokePath2.style.display = isMode2 ? 'none' : 'inline';
+          if (strokePath3) strokePath3.style.display = isMode2 ? 'inline' : 'none';
+        } else {
+          if (strokePath2) strokePath2.style.display = 'inline';
+          if (strokePath3) strokePath3.style.display = 'inline';
         }
-        if (strokePath1) strokePath1.style.display = 'inline';
-        if (cwArrow) cwArrow.style.display = 'none';
-        if (ccwArrow) ccwArrow.style.display = 'inline';
-        if (strokePath2) strokePath2.style.display = 'inline';
-        if (strokePath3) strokePath3.style.display = 'inline';
         if (indicatorGroup) indicatorGroup.style.display = 'inline';
-        group.classList.remove('motor-spin-cw');
-        group.classList.add('motor-spin-ccw');
+        group.classList.toggle('motor-spin-cw', isCW);
+        group.classList.toggle('motor-spin-ccw', !isCW);
+        group.classList.toggle('motor-spin-fast', isTwoSpeedMotor && isMode2);
       }
       return;
     }
@@ -2651,11 +2689,12 @@ class SimurelayCanvas {
         svgWrapper.setAttribute('pointer-events', 'none');
         svgWrapper.innerHTML = compDef.graphics;
 
-        // Group motor rotation arrows into a dedicated indicator group with origin at motor center
+        // Group motor rotation arrows ONLY into a dedicated indicator group with origin at motor center
+        // Keep strokePath2 (Y/1) and strokePath3 (Delta/2) stationary inside svgWrapper
         if (compDef.category === 'motors') {
           const cx = (compDef.width || 180) / 2;
           const cy = 90;
-          const rotatableIds = ['strokePath1', 'pathFill3', 'pathFill4', 'strokePath2', 'strokePath3'];
+          const rotatableIds = ['strokePath1', 'pathFill3', 'pathFill4'];
           const elementsToGroup = [];
           rotatableIds.forEach(id => {
             const pathEl = svgWrapper.querySelector(`#${id}, [id="${id}"]`);

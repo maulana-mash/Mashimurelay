@@ -1473,8 +1473,205 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // ============================================================================
+  // TEACHER JOBSHEET PDF ATTACHMENT MODULE
+  // ============================================================================
+  const TEACHER_JOBSHEET_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+
+  const teacherJobsheetState = {
+    file: null,
+    filename: '',
+    sizeBytes: 0,
+    base64Data: null
+  };
+
+  function formatJobsheetFileSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  }
+
+  function readPdfFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        const commaIndex = result.indexOf(',');
+        if (commaIndex === -1) {
+          reject(new Error('Format data berkas tidak valid.'));
+          return;
+        }
+        const pureBase64 = result.slice(commaIndex + 1).trim();
+        if (!pureBase64) {
+          reject(new Error('Berkas PDF kosong.'));
+          return;
+        }
+        resolve(pureBase64);
+      };
+      reader.onerror = () => {
+        reject(new Error('Gagal membaca berkas PDF dari perangkat.'));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function showTeacherJobsheetError(message) {
+    const errEl = document.getElementById('teacherJobsheetError');
+    if (!errEl) return;
+    if (message) {
+      errEl.textContent = message;
+      errEl.style.display = 'block';
+    } else {
+      errEl.textContent = '';
+      errEl.style.display = 'none';
+    }
+  }
+
+  function renderTeacherJobsheetUI() {
+    const dropzone = document.getElementById('teacherJobsheetDropzone');
+    const preview = document.getElementById('teacherJobsheetPreview');
+    const fileNameEl = document.getElementById('teacherJobsheetFileName');
+    const fileSizeEl = document.getElementById('teacherJobsheetFileSize');
+
+    if (!dropzone || !preview || !fileNameEl || !fileSizeEl) return;
+
+    if (teacherJobsheetState.base64Data && teacherJobsheetState.filename) {
+      dropzone.style.display = 'none';
+      preview.style.display = 'flex';
+      fileNameEl.textContent = teacherJobsheetState.filename;
+      fileNameEl.title = teacherJobsheetState.filename;
+      fileSizeEl.textContent = `Dokumen PDF - ${formatJobsheetFileSize(teacherJobsheetState.sizeBytes)}`;
+    } else {
+      dropzone.style.display = 'flex';
+      preview.style.display = 'none';
+      fileNameEl.textContent = '';
+      fileSizeEl.textContent = '';
+    }
+  }
+
+  function clearTeacherJobsheetAttachment() {
+    teacherJobsheetState.file = null;
+    teacherJobsheetState.filename = '';
+    teacherJobsheetState.sizeBytes = 0;
+    teacherJobsheetState.base64Data = null;
+
+    const fileInput = document.getElementById('inputTeacherJobsheetFile');
+    if (fileInput) {
+      fileInput.value = '';
+    }
+
+    showTeacherJobsheetError('');
+    renderTeacherJobsheetUI();
+  }
+
+  async function handleTeacherJobsheetSelection(file) {
+    showTeacherJobsheetError('');
+    if (!file) return;
+
+    const lowerName = (file.name || '').toLowerCase();
+    const isPdfMime = file.type === 'application/pdf';
+    const isPdfExtension = lowerName.endsWith('.pdf');
+
+    if (!isPdfMime && !isPdfExtension) {
+      showTeacherJobsheetError('Hanya berkas berformat PDF (.pdf) yang didukung.');
+      return;
+    }
+
+    if (file.size <= 0) {
+      showTeacherJobsheetError('Berkas PDF kosong dan tidak dapat dilampirkan.');
+      return;
+    }
+
+    if (file.size > TEACHER_JOBSHEET_MAX_BYTES) {
+      showTeacherJobsheetError(
+        `Ukuran berkas (${formatJobsheetFileSize(file.size)}) melebihi batas maksimum 25 MB.`
+      );
+      return;
+    }
+
+    try {
+      const base64Data = await readPdfFileAsBase64(file);
+      teacherJobsheetState.file = file;
+      teacherJobsheetState.filename = file.name;
+      teacherJobsheetState.sizeBytes = file.size;
+      teacherJobsheetState.base64Data = base64Data;
+      renderTeacherJobsheetUI();
+    } catch (err) {
+      clearTeacherJobsheetAttachment();
+      showTeacherJobsheetError(err && err.message ? err.message : 'Gagal memproses berkas PDF.');
+    }
+  }
+
+  function initTeacherJobsheetControls() {
+    const fileInput = document.getElementById('inputTeacherJobsheetFile');
+    const btnSelect = document.getElementById('btnSelectTeacherJobsheet');
+    const btnChange = document.getElementById('btnChangeTeacherJobsheet');
+    const btnRemove = document.getElementById('btnRemoveTeacherJobsheet');
+    const dropzone = document.getElementById('teacherJobsheetDropzone');
+
+    if (btnSelect && fileInput) {
+      btnSelect.addEventListener('click', () => {
+        fileInput.click();
+      });
+    }
+
+    if (btnChange && fileInput) {
+      btnChange.addEventListener('click', () => {
+        fileInput.click();
+      });
+    }
+
+    if (btnRemove) {
+      btnRemove.addEventListener('click', () => {
+        clearTeacherJobsheetAttachment();
+      });
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', async (event) => {
+        const selectedFile = event.target.files && event.target.files[0] ? event.target.files[0] : null;
+        if (selectedFile) {
+          await handleTeacherJobsheetSelection(selectedFile);
+        }
+        fileInput.value = '';
+      });
+    }
+
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropzone.style.borderColor = '#f59e0b';
+        dropzone.style.backgroundColor = 'rgba(217, 119, 6, 0.12)';
+      });
+
+      dropzone.addEventListener('dragleave', (event) => {
+        event.preventDefault();
+        dropzone.style.borderColor = '#475569';
+        dropzone.style.backgroundColor = 'rgba(15, 23, 42, 0.55)';
+      });
+
+      dropzone.addEventListener('drop', async (event) => {
+        event.preventDefault();
+        dropzone.style.borderColor = '#475569';
+        dropzone.style.backgroundColor = 'rgba(15, 23, 42, 0.55)';
+        const droppedFile = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0]
+          ? event.dataTransfer.files[0]
+          : null;
+        if (droppedFile) {
+          await handleTeacherJobsheetSelection(droppedFile);
+        }
+      });
+    }
+
+    renderTeacherJobsheetUI();
+  }
+
+  initTeacherJobsheetControls();
+
   function openTeacherTaskSetupModal(mode, customName) {
     pendingTaskDistributionMode = mode || 'qr';
+    renderTeacherJobsheetUI();
     const curProj = projectManager ? projectManager.getActiveProject() : null;
     const defaultTaskName = customName || (curProj ? curProj.name : ((canvas && canvas.circuit && canvas.circuit.header && canvas.circuit.header.name) || 'Rangkaian Tugas Praktikum'));
     
@@ -1606,6 +1803,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     renderClassroomSubmissions([]);
 
+    const hasJobsheet = Boolean(teacherJobsheetState.base64Data && teacherJobsheetState.filename);
     const rawCircuit = {
       header: {
         simurelay: 'simurelay',
@@ -1618,13 +1816,24 @@ document.addEventListener('DOMContentLoaded', () => {
       class: finalClass,
       school: finalSchool,
       assignmentKit: canvas && canvas.circuit ? canvas.circuit.assignmentKit : undefined,
+      jobsheet: {
+        available: hasJobsheet,
+        filename: hasJobsheet ? teacherJobsheetState.filename : null,
+        sizeBytes: hasJobsheet ? teacherJobsheetState.sizeBytes : 0,
+        endpoint: hasJobsheet ? '/jobsheet.pdf' : null
+      },
       data: canvas.circuit ? canvas.circuit.data : []
     };
     const jsonString = JSON.stringify(rawCircuit, null, 2);
 
     try {
       showToast('Memulai server Hotspot guru...');
-      const serverInfo = await window.TauriBridge.startClassroomServer(taskName, jsonString);
+      const serverInfo = await window.TauriBridge.startClassroomServer(
+        taskName,
+        jsonString,
+        teacherJobsheetState.base64Data,
+        teacherJobsheetState.filename
+      );
       if (!serverInfo) {
         showToast('Gagal menyalakan server Hotspot.');
         return;
@@ -3358,75 +3567,77 @@ document.addEventListener('DOMContentLoaded', () => {
       updateInspector(curItem);
     },
     onShortCircuit: (isShort, shortInfo) => {
-      if (isShort && canvas && canvas.isSimulating) {
-        const isDc = shortInfo && shortInfo.isDcOverheat;
-        statusBadge.className = 'status-badge status-short-circuit';
-        statusBadge.textContent = isDc ? 'DC OVERHEAT!' : 'SHORT CIRCUIT!';
-        if (alertBanner) {
-          alertBanner.classList.remove('alert-fuse-blown');
-        }
-        if (!alertDismissedByUser && alertBanner) {
-          const alertTextEl = alertBanner.querySelector('.alert-text');
-          if (alertTextEl) {
-            alertTextEl.innerHTML = isDc
-              ? '<strong>DC OVERHEAT!</strong> Kutub (+) dan (-) terhubung tanpa beban'
-              : '<strong>SHORT CIRCUIT!</strong> Periksa sambungan fasa / netral';
-          }
-          alertBanner.style.display = 'inline-flex';
-          if (floatingPill && floatingPill.style.display !== 'none') {
-            alertBanner.classList.add('pill-active');
-          } else {
-            alertBanner.classList.remove('pill-active');
-          }
-        }
-      } else {
-        alertDismissedByUser = false;
-        const stillBlown = !!(canvas && canvas.isSimulating && canvas.simResult?.isFuseBlown);
-        if (alertBanner && !stillBlown) {
-          alertBanner.style.display = 'none';
-          alertBanner.classList.remove('pill-active');
-          alertBanner.classList.remove('alert-fuse-blown');
-        }
-        if (statusBadge && !stillBlown) {
-          const isRunning = !!(canvas && canvas.isSimulating);
-          statusBadge.className = isRunning ? 'status-badge status-running' : 'status-badge status-stopped';
-          statusBadge.textContent = isRunning ? 'RUNNING' : 'STOPPED';
-        }
-      }
-    },
-    onFuseBlown: (isBlown, newlyBlownFuses) => {
-      if (isBlown && canvas && canvas.isSimulating) {
-        statusBadge.className = 'status-badge status-fuse-blown';
-        statusBadge.textContent = 'FUSE BLOWN!';
-        if (!alertDismissedByUser && alertBanner) {
-          const alertTextEl = alertBanner.querySelector('.alert-text');
-          if (alertTextEl) {
-            alertTextEl.innerHTML = '<strong>FUSE TERPUTUS!</strong> Matikan simulasi & perbaiki di properti';
-          }
-          alertBanner.classList.add('alert-fuse-blown');
-          alertBanner.style.display = 'inline-flex';
-          if (floatingPill && floatingPill.style.display !== 'none') {
-            alertBanner.classList.add('pill-active');
-          } else {
-            alertBanner.classList.remove('pill-active');
-          }
-        }
-      } else {
-        const stillShort = !!(canvas && canvas.isSimulating && canvas.simResult?.shortCircuit);
-        if (!stillShort) {
+      if (!canvas) return;
+      const syncAlertUI = () => {
+        if (!canvas.isSimulating) {
+          alertDismissedByUser = false;
           if (alertBanner) {
-            alertBanner.classList.remove('alert-fuse-blown');
             alertBanner.style.display = 'none';
-            alertBanner.classList.remove('pill-active');
+            alertBanner.classList.remove('pill-active', 'alert-fuse-blown');
           }
           if (statusBadge) {
-            const isRunning = !!(canvas && canvas.isSimulating);
-            statusBadge.className = isRunning ? 'status-badge status-running' : 'status-badge status-stopped';
-            statusBadge.textContent = isRunning ? 'RUNNING' : 'STOPPED';
+            statusBadge.className = 'status-badge status-stopped';
+            statusBadge.textContent = 'STOPPED';
+          }
+          return;
+        }
+        const sim = canvas.simResult || {};
+        const isShortNow = !!sim.shortCircuit;
+        const isDcNow = !!sim.isDcOverheat;
+        const isEarthNow = !!sim.isEarthLeakage;
+        const trippedEarth = sim.trippedEarthLeakageTags || [];
+        const trippedShort = sim.trippedBreakerTags || [];
+        const isFuseNow = !!sim.isFuseBlown;
+
+        const alertTextEl = alertBanner ? alertBanner.querySelector('.alert-text') : null;
+        const showAlert = (badgeClass, badgeText, htmlMsg, isAmber) => {
+          if (statusBadge) {
+            statusBadge.className = `status-badge ${badgeClass}`;
+            statusBadge.textContent = badgeText;
+          }
+          if (alertBanner) {
+            alertBanner.classList.toggle('alert-fuse-blown', !!isAmber);
+            if (!alertDismissedByUser) {
+              if (alertTextEl) alertTextEl.innerHTML = htmlMsg;
+              alertBanner.style.display = 'inline-flex';
+              alertBanner.classList.toggle('pill-active', !!(floatingPill && floatingPill.style.display !== 'none'));
+            }
+          }
+        };
+
+        if (isShortNow && isDcNow) {
+          showAlert('status-short-circuit', 'DC OVERHEAT!', '<strong>DC OVERHEAT!</strong> Kutub (+) dan (-) terhubung tanpa beban', false);
+        } else if (isShortNow) {
+          showAlert('status-short-circuit', 'SHORT CIRCUIT!', '<strong>SHORT CIRCUIT!</strong> Periksa sambungan fasa / netral pada jalur oranye', false);
+        } else if (isEarthNow) {
+          showAlert('status-short-circuit', 'ARUS BOCOR!', '<strong>ARUS BOCOR TANAH!</strong> Fasa terhubung ke PE/GND — periksa isolasi', false);
+        } else if (trippedEarth.length > 0) {
+          const tags = trippedEarth.join(', ');
+          showAlert('status-fuse-blown', 'ELCB/RCCB TRIP!', `<strong>ELCB/RCCB TRIP (${tags})!</strong> Arus bocor ke tanah terdeteksi`, true);
+        } else if (trippedShort.length > 0) {
+          const tags = trippedShort.join(', ');
+          showAlert('status-fuse-blown', 'BREAKER TRIP!', `<strong>BREAKER TRIP (${tags})!</strong> Hubung singkat terdeteksi — periksa rangkaian`, true);
+        } else if (isFuseNow) {
+          showAlert('status-fuse-blown', 'FUSE BLOWN!', '<strong>FUSE TERPUTUS!</strong> Matikan simulasi & perbaiki di properti', true);
+        } else {
+          alertDismissedByUser = false;
+          if (alertBanner) {
+            alertBanner.style.display = 'none';
+            alertBanner.classList.remove('pill-active', 'alert-fuse-blown');
+          }
+          if (statusBadge) {
+            statusBadge.className = 'status-badge status-running';
+            statusBadge.textContent = 'RUNNING';
           }
         }
+      };
+      canvas._syncAlertUI = syncAlertUI;
+      syncAlertUI();
+    },
+    onFuseBlown: (isBlown, newlyBlownFuses) => {
+      if (canvas && typeof canvas._syncAlertUI === 'function') {
+        canvas._syncAlertUI();
       }
-
       // Automatically refresh Properties Panel and Floating Pill to OFF if selected element is a blown fuse
       if (newlyBlownFuses && newlyBlownFuses.length > 0) {
         if (canvas.selectedElementId && newlyBlownFuses.includes(canvas.selectedElementId)) {
@@ -3436,6 +3647,22 @@ document.addEventListener('DOMContentLoaded', () => {
             updateInspector(selItem);
           }
         }
+      }
+    },
+    onBreakerTripped: (trippedBreakerTags, trippedEarthLeakageTags, newlyTrippedBreakers) => {
+      if (newlyTrippedBreakers && newlyTrippedBreakers.length > 0) {
+        alertDismissedByUser = false;
+        const trippedIds = newlyTrippedBreakers.map(t => t.id);
+        if (canvas && canvas.selectedElementId && trippedIds.includes(canvas.selectedElementId)) {
+          const selItem = canvas.circuit.data.find(el => el.id === canvas.selectedElementId);
+          if (selItem) {
+            updateFloatingPill(selItem);
+            updateInspector(selItem);
+          }
+        }
+      }
+      if (canvas && typeof canvas._syncAlertUI === 'function') {
+        canvas._syncAlertUI();
       }
     }
   });

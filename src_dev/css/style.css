@@ -1134,6 +1134,29 @@ body,
   animation: wireDcOverheatPulsing 0.35s infinite ease-in-out !important;
 }
 
+/* AC Short Circuit & Earth Fault Per-Net Pulsing Animation (Kabel Oranye Membara) */
+@keyframes wireAcShortPulsing {
+  0% {
+    stroke: #f97316 !important;
+    filter: drop-shadow(0 0 3px #f97316);
+    stroke-width: 3.5 !important;
+  }
+  50% {
+    stroke: #fde047 !important;
+    filter: drop-shadow(0 0 8px #f97316) drop-shadow(0 0 14px #fb923c);
+    stroke-width: 4.8 !important;
+  }
+  100% {
+    stroke: #f97316 !important;
+    filter: drop-shadow(0 0 3px #f97316);
+    stroke-width: 3.5 !important;
+  }
+}
+
+.circuit-wire path.wire-ac-short {
+  animation: wireAcShortPulsing 0.38s infinite ease-in-out !important;
+}
+
 .lamp-color-palette {
   display: flex;
   gap: 8px;
@@ -1205,6 +1228,14 @@ body,
 
 .motor-spin-ccw .motor-indicator-group {
   animation: motorSpinCCW 1.0s linear infinite;
+}
+
+.motor-spin-fast.motor-spin-cw .motor-indicator-group {
+  animation: motorSpinCW 0.54s linear infinite;
+}
+
+.motor-spin-fast.motor-spin-ccw .motor-indicator-group {
+  animation: motorSpinCCW 0.54s linear infinite;
 }
 
 /* Bottom Status & Help Bar */
